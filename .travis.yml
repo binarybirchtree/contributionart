@@ -1,0 +1,13 @@
+language: java
+
+sudo: required
+
+dist: trusty
+
+jdk:
+  - openjdk8
+  - oraclejdk8
+
+script:
+  - gradle build
+

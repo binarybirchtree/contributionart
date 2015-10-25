@@ -1,5 +1,7 @@
 # ContributionArt
 
+[![Build Status](https://travis-ci.org/binarybirchtree/contributionart.svg)](https://travis-ci.org/binarybirchtree/contributionart)
+
 Places custom-designed artwork on the GitHub contribution graph.
 
 ## Building
