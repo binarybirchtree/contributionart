@@ -33,8 +33,8 @@ class ContributionArt {
       Arguments arguments = new Arguments();
       new JCommander(arguments, args);
 
-      try (Repository repository = new Repository(Paths.get(arguments.repository))) {
-        repository.illustrate(new Matrix(Paths.get(arguments.matrix)), arguments.factor, arguments.name, arguments.email);
+      try (Repository repository = new Repository(Paths.get(arguments.repository), arguments.name, arguments.email)) {
+        repository.illustrate(new Matrix(Paths.get(arguments.matrix)), arguments.factor);
       }
     }
     catch (ParameterException error) {

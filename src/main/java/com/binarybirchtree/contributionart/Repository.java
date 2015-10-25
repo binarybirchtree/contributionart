@@ -1,6 +1,8 @@
 package com.binarybirchtree.contributionart;
 
+import java.io.BufferedWriter;
 import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.DayOfWeek;
 import java.time.ZoneOffset;
@@ -24,7 +26,10 @@ public class Repository implements AutoCloseable {
     }
   }
 
+  private Path directory;
   private Git git;
+  private String name;
+  private String email;
 
   @Override
   public void close () {
@@ -33,29 +38,22 @@ public class Repository implements AutoCloseable {
 
   ///
   /// @param[in] directory Directory of the repository.
-  /// @param[in] branch Branch to use.
+  /// @param[in] name User name.
+  /// @param[in] email Email address.
   ///
-  public Repository (Path directory, String branch) throws IOException, GitException {
+  public Repository (Path directory, String name, String email) throws IOException, GitException {
+    this.directory = directory;
+    this.name = name;
+    this.email = email;
+
     try {
       Git.init().setDirectory(directory.toFile()).setBare(false).call();
       git = Git.open(directory.toFile());
       LOGGER.info(String.format("Initialized Git repository at '%s'.", directory));
-
-      if (branch != null) {
-        git.checkout().setName(branch).call();
-        LOGGER.info(String.format("Checked out branch '%s'.", branch));
-      }
     }
     catch (GitAPIException error) {
       throw new GitException(error.toString());
     }
-  }
-
-  ///
-  /// @param[in] directory Directory of the repository.
-  ///
-  public Repository (Path directory) throws IOException, GitException {
-    this(directory, null);
   }
 
   ///
@@ -64,29 +62,28 @@ public class Repository implements AutoCloseable {
   ///
   /// @param[in] matrix Matrix to illustrate.
   /// @param[in] factor Scaling factor.
-  /// @param[in] name User name.
-  /// @param[in] email Email address.
   /// @param[in] timestamp Timestamp containing the current date to use to render the matrix.
   ///
-  public void illustrate (Matrix matrix, int factor, String name, String email, ZonedDateTime timestamp) throws GitException {
+  public void illustrate (Matrix matrix, int factor, ZonedDateTime timestamp) throws GitException, IOException {
     ZonedDateTime now = ZonedDateTime.now();
 
     // Start from the earliest date, which corresponds to the first value in the definition matrix.
     ZonedDateTime current = timestamp
     .truncatedTo(ChronoUnit.DAYS)
     .with(WeekFields.SUNDAY_START.dayOfWeek(), DayOfWeek.values().length)
-    .minusDays(Matrix.AREA - 1);
+    .minusDays(Matrix.AREA);
 
     for (Matrix.Value value : matrix) {
+      current = current.plusDays(1);
+
       // Skip values that correspond to dates later than the specified timestamp.
-      if (current.isBefore(now)) {
+      if (current.isBefore(now) || current.isEqual(now)) {
         // The number of commits to generate for a particular date depends on
         // the corresponding value in the definition matrix and the scaling factor.
         int weight = value.weight() * factor;
 
         try {
-          PersonIdent identity = new PersonIdent(name, email, Date.from(current.toInstant()), TimeZone.getTimeZone(current.getZone()));
-
+          PersonIdent identity = identity(current);
           for (int i = 0; i < weight; ++i) {
             git.commit().setMessage("").setAuthor(identity).setCommitter(identity).call();
           }
@@ -97,11 +94,49 @@ public class Repository implements AutoCloseable {
 
         LOGGER.info(String.format("Created %d commit%s with timestamp %s.", weight, weight > 1 ? "s" : "", current));
       }
-      current = current.plusDays(1);
     }
+
+    create_file(directory.resolve("README.md"), README, timestamp.truncatedTo(ChronoUnit.DAYS));
   }
 
-  public void illustrate (Matrix matrix, int factor, String name, String email) throws GitException {
-    illustrate(matrix, factor, name, email, ZonedDateTime.now(ZoneOffset.UTC));
+  public void illustrate (Matrix matrix, int factor) throws GitException, IOException {
+    illustrate(matrix, factor, ZonedDateTime.now(ZoneOffset.UTC));
   }
+
+  ///
+  /// Creates a file at the specified path with the specified contents and commit timestamp.
+  ///
+  /// @param[in] file File path.
+  /// @param[in] contents File contents.
+  /// @param[in] timestamp Commit timestamp.
+  ///
+  protected void create_file (Path file, String contents, ZonedDateTime timestamp) throws GitException, IOException {
+    try (BufferedWriter writer = Files.newBufferedWriter(file)) {
+      writer.write(contents);
+    }
+
+    try {
+      git.add().addFilepattern(directory.relativize(file).toString()).call();
+      PersonIdent identity = identity(timestamp);
+      git.commit().setMessage(String.format("Added %s.", file.getFileName().toString())).setAuthor(identity).setCommitter(identity).call();
+    }
+    catch (GitAPIException error) {
+      throw new GitException(error.toString());
+    }
+
+    LOGGER.info(String.format("Created file '%s' with timestamp %s and contents '%s'.", file, timestamp, contents));
+  }
+
+  ///
+  /// @param[in] timestamp Timestamp.
+  /// @return PersonIdent for the specified timestamp.
+  ///
+  private PersonIdent identity (ZonedDateTime timestamp) {
+    return new PersonIdent(name, email, Date.from(timestamp.toInstant()), TimeZone.getTimeZone(timestamp.getZone()));
+  }
+
+  public static String README =
+  "# Contribution Graph Artwork\n\n" +
+  "This repository was programmatically generated by [ContributionArt](https://github.com/binarybirchtree/contributionart/), " +
+  "a tool which allows custom-designed artwork to be displayed on the GitHub contribution graph.\n";
 }

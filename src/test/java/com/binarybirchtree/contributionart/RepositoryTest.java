@@ -1,6 +1,7 @@
 package com.binarybirchtree.contributionart;
 
 import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.DayOfWeek;
 import java.time.Instant;
@@ -9,8 +10,10 @@ import java.time.ZonedDateTime;
 import java.time.temporal.ChronoUnit;
 import java.time.temporal.WeekFields;
 import java.util.Iterator;
+import java.util.List;
 import java.util.stream.StreamSupport;
 
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import org.eclipse.jgit.api.Git;
 import org.eclipse.jgit.api.errors.GitAPIException;
@@ -22,22 +25,75 @@ import org.junit.Test;
 public class RepositoryTest extends BaseTest {
   @Test
   public void validate_commits () throws IOException, Matrix.FileFormatException, Repository.GitException, GitAPIException {
-    Path repo = folder.newFolder().toPath();
-    Matrix matrix = new Matrix(file);
     final int factor = 20;
     final String name = "name";
     final String email = "email";
 
+    ///
+    /// Encapsulates commit-validation logic.
+    ///
+    class CommitValidator {
+      final ZonedDateTime timestamp;
+
+      ///
+      /// @param[in] commit Commit to validate.
+      /// @param[in] timestamp Expected timestamp.
+      /// @param[in] message Expected message.
+      ///
+      CommitValidator (RevCommit commit, ZonedDateTime timestamp, String message) {
+        this.timestamp = timestamp;
+
+        Assert.assertEquals(timestamp.toInstant(), Instant.ofEpochSecond(commit.getCommitTime()));
+        Assert.assertEquals(message, commit.getFullMessage());
+
+        new IdentityValidator(commit.getAuthorIdent());
+        new IdentityValidator(commit.getCommitterIdent());
+      }
+
+      ///
+      /// Contains shared validation logic used for both Author and Committer identities.
+      ///
+      class IdentityValidator {
+        private PersonIdent identity;
+
+        ///
+        /// @param[in] identity Identity to validate.
+        ///
+        public IdentityValidator (PersonIdent identity) {
+          this.identity = identity;
+
+          validate_name();
+          validate_email();
+          validate_timestamp();
+        }
+
+        private void validate_name () {
+          Assert.assertEquals(name, identity.getName());
+        }
+
+        private void validate_email () {
+          Assert.assertEquals(email, identity.getEmailAddress());
+        }
+
+        private void validate_timestamp () {
+          Assert.assertEquals(timestamp.toInstant(), identity.getWhen().toInstant());
+        }
+      }
+    }
+
+    Path repo = folder.newFolder().toPath();
+    Matrix matrix = new Matrix(file);
+    ZonedDateTime today = ZonedDateTime.now(ZoneOffset.UTC).truncatedTo(ChronoUnit.DAYS);
+
     // Generate commits in a temporary repository.
-    try (Repository repository = new Repository(repo)) {
-      repository.illustrate(matrix, factor, name, email);
+    try (Repository repository = new Repository(repo, name, email)) {
+      repository.illustrate(matrix, factor);
     }
 
     // Verify that the state of the repository is as expected.
     try (Git git = Git.open(repo.toFile())) {
       // Start from the earliest date for which commits were generated.
-      ZonedDateTime current = ZonedDateTime.now(ZoneOffset.UTC)
-      .truncatedTo(ChronoUnit.DAYS)
+      ZonedDateTime current = today
       .with(WeekFields.SUNDAY_START.dayOfWeek(), DayOfWeek.values().length)
       .minusDays(Matrix.AREA);
 
@@ -48,8 +104,18 @@ public class RepositoryTest extends BaseTest {
       int cell_iterations = 0;
       int commit_count = 0;
 
+      // Retrieve the list of commits, sorted from earliest to latest.
+      List<RevCommit> commits = Lists.reverse(Lists.newArrayList(git.log().call()));
+      Assert.assertFalse(commits.isEmpty());
+
+      // Validate the README commit.
+      String readme = "README.md";
+      new CommitValidator(Iterables.getLast(commits), today, String.format("Added %s.", readme));
+      commits.remove(commits.size() - 1);
+      Assert.assertEquals(Repository.README, new String(Files.readAllBytes(repo.resolve(readme))));
+
       // Iterate through the commit log, starting from the earliest commit.
-      for (RevCommit commit : Lists.reverse(Lists.newArrayList(git.log().call()))) {
+      for (RevCommit commit : commits) {
         if (cell_iterations == 0) {
           Assert.assertTrue(values.hasNext());
           value = values.next();
@@ -57,48 +123,7 @@ public class RepositoryTest extends BaseTest {
           current = current.plusDays(1);
         }
 
-        Assert.assertEquals(current.toInstant(), Instant.ofEpochSecond(commit.getCommitTime()));
-
-        ///
-        /// Contains shared validation logic used for both Author and Committer identities.
-        ///
-        class IdentityValidator {
-          private PersonIdent identity;
-
-          ///
-          /// @param[in] identity Identity to validate.
-          ///
-          public IdentityValidator (PersonIdent identity) {
-            this.identity = identity;
-          }
-
-          private void validate_name () {
-            Assert.assertEquals(name, identity.getName());
-          }
-
-          private void validate_email () {
-            Assert.assertEquals(email, identity.getEmailAddress());
-          }
-
-          ///
-          /// @param[in] timestamp Expected timestamp.
-          ///
-          private void validate_timestamp (ZonedDateTime timestamp) {
-            Assert.assertEquals(timestamp.toInstant(), identity.getWhen().toInstant());
-          }
-
-          ///
-          /// @param[in] timestamp Expected timestamp.
-          ///
-          public void validate (ZonedDateTime timestamp) {
-            validate_name();
-            validate_email();
-            validate_timestamp(timestamp);
-          }
-        }
-
-        (new IdentityValidator(commit.getAuthorIdent())).validate(current);
-        (new IdentityValidator(commit.getCommitterIdent())).validate(current);
+        new CommitValidator(commit, current, "");
 
         ++commit_count;
         --cell_iterations;
@@ -116,5 +141,4 @@ public class RepositoryTest extends BaseTest {
       Assert.assertEquals(expected_commit_count, commit_count);
     }
   }
-
 }

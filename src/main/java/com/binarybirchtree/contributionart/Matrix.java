@@ -11,7 +11,7 @@ import com.google.common.collect.ImmutableBiMap;
 
 ///
 /// Provides a representation of a GitHub contribution graph,
-/// which shows one year of contributions in a grid with 53 columns and 7 rows.
+/// which shows one year of contributions in a grid with 7 rows and up to 54 columns.
 /// Note that the first and last columns may not be completely shown,
 /// depending on the current date used when generating the graph.
 ///
@@ -19,7 +19,7 @@ public class Matrix implements Iterable<Matrix.Value> {
   private static final Logger LOGGER = Logger.getLogger(Matrix.class.getName());
 
   public static final int ROWS = 7;
-  public static final int COLUMNS = 53;
+  public static final int COLUMNS = 54;
   public static final int AREA = ROWS * COLUMNS;
 
   public class FileFormatException extends Exception {
