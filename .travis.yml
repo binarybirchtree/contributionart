@@ -1,13 +1,20 @@
 language: java
-
 sudo: required
-
 dist: trusty
+group: edge
 
 jdk:
   - openjdk8
   - oraclejdk8
+  - oraclejdk9
+
+before_install:
+  - wget https://downloads.gradle.org/distributions/gradle-3.0-bin.zip
+  - unzip gradle-3.0-bin.zip
+  - export GRADLE_HOME="$(readlink -f gradle-3.0)"
+  - export PATH="$GRADLE_HOME/bin:$PATH"
 
 script:
-  - gradle build
-
+  - gradle --version
+  - gradle test -i
+  - ./contributionart.sh

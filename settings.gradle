@@ -14,21 +14,4 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-group 'com.binarybirchtree.contributionart'
-version '1.0-SNAPSHOT'
-
-apply plugin: 'application'
-mainClassName = "com.binarybirchtree.contributionart.ContributionArt"
-
-dependencies {
-  compile 'org.eclipse.jgit:org.eclipse.jgit:4.+'
-  compile 'com.beust:jcommander:1.+'
-  compile 'com.google.guava:guava:19.+'
-  testCompile 'junit:junit:4.+'
-}
-
-repositories {
-  maven {
-    url 'https://repo1.maven.org/maven2'
-  }
-}
+rootProject.name = 'contributionart'

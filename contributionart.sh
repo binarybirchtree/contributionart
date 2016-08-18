@@ -17,7 +17,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 echo "Running Gradle."
-gradle --daemon build installDist
+gradle installDist
 
 echo "Running ContributionArt."
 build/install/contributionart/bin/contributionart \
