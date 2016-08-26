@@ -1,6 +1,7 @@
 # ContributionArt
 
-[![Build Status](https://travis-ci.org/binarybirchtree/contributionart.svg)](https://travis-ci.org/binarybirchtree/contributionart)
+[![Travis CI](https://img.shields.io/travis/binarybirchtree/contributionart.svg)](https://travis-ci.org/binarybirchtree/contributionart)
+[![License](https://img.shields.io/badge/license-GNU General Public License v3.0-blue.svg)](https://www.gnu.org/licenses/gpl-3.0.html)
 
 Places custom-designed artwork on the GitHub contribution graph.
 
@@ -43,4 +44,3 @@ build/install/contributionart/bin/contributionart \
 ## Author
 
 Binary Birch Tree
-
